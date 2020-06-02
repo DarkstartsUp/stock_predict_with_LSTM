@@ -51,7 +51,7 @@ class Config:
     do_predict = True
     add_train = False           # 是否载入已有模型参数进行增量训练
     shuffle_train_data = True   # 是否对训练数据做shuffle
-    use_cuda = False            # 是否使用GPU训练
+    use_cuda = True            # 是否使用GPU训练
 
     train_data_rate = 0.95      # 训练数据占总体数据比例，测试数据就是 1-train_data_rate
     valid_data_rate = 0.15      # 验证数据占训练数据比例，验证集在训练过程使用，为了做模型和参数选择
@@ -85,7 +85,7 @@ class Config:
     log_save_path = "./log/"
     do_log_save = True                  # 是否将config和训练过程记录到log
     do_figure_save = False
-    do_train_visualized = False          # 训练loss可视化，pytorch用visdom，tf用tensorboardX，实际上可以通用, keras没有
+    do_train_visualized = False         # 训练loss可视化，pytorch用visdom，tf用tensorboardX，实际上可以通用, keras没有
     if not os.path.exists(model_save_path):
         os.makedirs(model_save_path)    # makedirs 递归创建目录
     if not os.path.exists(figure_save_path):
@@ -216,7 +216,7 @@ def draw(config: Config, origin_data: Data, logger, predict_norm_data: np.ndarra
     label_X = range(origin_data.data_num - origin_data.train_num - origin_data.start_num_in_test)
     predict_X = [ x + config.predict_day for x in label_X]
 
-    if not sys.platform.startswith('linux'):    # 无桌面的Linux下无法输出，如果是有桌面的Linux，如Ubuntu，可去掉这一行
+    if True:  # not sys.platform.startswith('linux'):    # 无桌面的Linux下无法输出，如果是有桌面的Linux，如Ubuntu，可去掉这一行
         for i in range(label_column_num):
             plt.figure(i+1)                     # 预测数据绘制
             plt.plot(label_X, label_data[:, i], label='label')
