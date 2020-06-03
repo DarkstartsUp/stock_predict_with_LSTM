@@ -8,6 +8,7 @@ pytorch 模型
 """
 
 import torch
+from .conv_lstm import ConvLSTM
 from torch.nn import Module, LSTM, Linear
 from torch.utils.data import DataLoader, TensorDataset
 import numpy as np
@@ -21,10 +22,18 @@ class Net(Module):
         super(Net, self).__init__()
         self.lstm = LSTM(input_size=config.input_size, hidden_size=config.hidden_size,
                          num_layers=config.lstm_layers, batch_first=True, dropout=config.dropout_rate)
+        '''if use convlstm:
+        self.convlstm = ConvLSTM(input_dim=config.n_channels, hidden_dim=config.n_filters,
+                                 kernel_size=(3, 3), num_layers=config.lstm_layers, batch_first=True)
+        '''
+
         self.linear = Linear(in_features=config.hidden_size, out_features=config.output_size)
 
     def forward(self, x, hidden=None):
         lstm_out, hidden = self.lstm(x, hidden)
+        '''if use convlstm:
+        lstm_out, hidden = self.convlstm(x, hidden)
+        '''
         linear_out = self.linear(lstm_out)
         return linear_out, hidden
 
