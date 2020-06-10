@@ -208,3 +208,19 @@ class ConvLSTM(nn.Module):
         if not isinstance(param, list):
             param = [param] * num_layers
         return param
+
+
+class CrossEntropy2d(nn.Module):
+    """
+    二维的交叉熵损失
+    """
+    def __init__(self):
+        super(CrossEntropy2d, self).__init__()
+        self.criterion = nn.CrossEntropyLoss(weight=None, reduction='mean')
+    def forward(self, out, target):
+        n, c, h, w = out.size()         # n:batch_size, c:class
+        out = out.view(-1, c)           # (n*h*w, c)
+        target = target.view(-1)        # (n*h*w)
+        # print('out', out.size(), 'target', target.size())
+        loss = self.criterion(out, target)
+        return loss
