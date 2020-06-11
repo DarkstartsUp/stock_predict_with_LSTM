@@ -53,9 +53,9 @@ class Config:
 
     batch_size = 64
     learning_rate = 0.0005
-    epoch = 20                    # 整个训练集被训练多少遍，不考虑早停的前提下
+    epoch = 60                     # 整个训练集被训练多少遍，不考虑早停的前提下
     patience = 120                 # 训练多少epoch，验证集没提升就停掉
-    random_seed = 42              # 随机种子，保证可复现
+    random_seed = 42               # 随机种子，保证可复现
 
     # do_continue_train = False    # 每次训练把上一次的final_state作为下一次的init_state，仅用于RNN类型模型，目前仅支持pytorch
     # continue_flag = ""           # 但实际效果不佳，可能原因：仅能以 batch_size = 1 训练
@@ -187,6 +187,7 @@ def load_logger(config):
     return logger
 
 
+# 结果可视化模块  暂时没用到
 def draw(config: Config, origin_data: Data, logger, predict_norm_data: np.ndarray):
     label_data = origin_data.data[origin_data.train_num + origin_data.start_num_in_test : ,
                                             config.label_in_feature_index]
