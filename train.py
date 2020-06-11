@@ -234,7 +234,7 @@ def main(config):
         if config.do_predict:
             test_X, test_Y = data_gainer.get_test_data()
             pred_ys, real_ys = predict(config, [test_X, test_Y])
-            target_names = ['class flat', 'class rise', 'class down']
+            target_names = ['class flat', 'class down', 'class rise']    # label: 0:平  1:跌  2:涨
             print('Classification table for test set:')
             print(classification_report(real_ys, pred_ys, target_names=target_names))
             # draw(config, data_gainer, logger, pred_result)
