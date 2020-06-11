@@ -1,12 +1,12 @@
 # -*- coding: UTF-8 -*-
 """
 @Author: xueyang
-@File Create: 20200609
+@File Create: 20200611
 @Last Modify: 20200611
-@Function: Train Conv-LSTM for stock prediction, including config parsing, data processing and model training
+@Function: Test Conv-LSTM model for stock prediction
 """
 
-
+import pandas as pd
 import numpy as np
 import os
 import sys
@@ -20,9 +20,14 @@ from model.model_pytorch import train, predict
 
 class Config:
     # 数据参数
-    # feature_columns = 1          # 每只股票的feature维数
-
+    # feature_columns = list(range(2, 9))     # 要作为feature的列，按原数据从0开始计算，也可以用list 如 [2,4,6,8] 设置
+    # label_columns = [4, 5]                  # 要预测的列，按原数据从0开始计算, 如同时预测第四，五列 最低价和最高价
+    # label_in_feature_index = [feature_columns.index(i) for i in label_columns]  # 这样写不行
+    # label_in_feature_index = (lambda x,y: [x.index(i) for i in y])(feature_columns, label_columns)  # 因为feature不一定从0开始
     # 网络参数
+    # input_size = len(feature_columns)
+    # output_size = len(label_columns)
+
     time_step = 30                # 设置用前多少天的数据来预测，也是LSTM的time step数
     predict_day = 7               # 预测未来多少天的涨跌平
     input_channels = 1            # 输入的特征维数
@@ -34,23 +39,14 @@ class Config:
     conv_out_channel = 16         # 卷积中间层的输出channel数
     category_num = 3              # 输出的预测类别数量
 
-    # dropout_rate = 0.2          # dropout概率
-
-    # 训练参数
-    do_train = True
-    do_predict = True
-    add_train = False             # 是否载入已有模型参数进行增量训练
-    shuffle_train_data = True     # 是否对训练数据做shuffle
-    use_cuda = True               # 是否使用GPU训练
-
     train_data_rate = 0.8         # 训练数据占总体数据比例，测试数据就是 1-train_data_rate
     valid_data_rate = 0.1         # 验证数据占训练数据比例，验证集在训练过程使用，为了做模型和参数选择
 
     batch_size = 64
     learning_rate = 0.0005
-    epoch = 120                   # 整个训练集被训练多少遍，不考虑早停的前提下
-    patience = 120                # 训练多少epoch，验证集没提升就停掉
-    random_seed = 42              # 随机种子，保证可复现
+    epoch = 120                    # 整个训练集被训练多少遍，不考虑早停的前提下
+    patience = 120                 # 训练多少epoch，验证集没提升就停掉
+    random_seed = 42               # 随机种子，保证可复现
 
     # do_continue_train = False    # 每次训练把上一次的final_state作为下一次的init_state，仅用于RNN类型模型，目前仅支持pytorch
     # continue_flag = ""           # 但实际效果不佳，可能原因：仅能以 batch_size = 1 训练
@@ -62,10 +58,11 @@ class Config:
     # 训练模式
     debug_mode = False  # 调试模式下，是为了跑通代码，追求快
     debug_num = 500  # 仅用debug_num条数据来调试
+    use_cuda = True  # 是否使用GPU训练
 
     experiment_name = 'ConvLSTM'
     model_postfix = ".pth"
-    model_name = "model_" + time.strftime("%Y%m%d_%H%M%S") + model_postfix
+    model_name = 'model_20200611_195548.pth'
 
     # 路径参数
     train_data_path = './data/Astock_hs300_no_nan.npy'
@@ -75,15 +72,6 @@ class Config:
     do_log_save = True                  # 是否将config和训练过程记录到log
     do_figure_save = False
     do_train_visualized = False         # 训练loss可视化，pytorch用visdom或tensorboardX
-
-    if not os.path.exists(model_save_path):
-        os.makedirs(model_save_path)    # makedirs 递归创建目录
-    if not os.path.exists(figure_save_path):
-        os.mkdir(figure_save_path)
-    if do_log_save or do_train_visualized:
-        cur_time = time.strftime("%Y_%m_%d_%H_%M_%S", time.localtime())
-        log_save_path = log_save_path + cur_time + '_' + experiment_name + "/"
-        os.makedirs(log_save_path)
 
 
 class Data:
@@ -182,62 +170,19 @@ def load_logger(config):
     return logger
 
 
-# 结果可视化模块  暂时没用到
-def draw(config: Config, origin_data: Data, logger, predict_norm_data: np.ndarray):
-    label_data = origin_data.data[origin_data.train_num + origin_data.start_num_in_test : ,
-                                            config.label_in_feature_index]
-    predict_data = predict_norm_data * origin_data.std[config.label_in_feature_index] + \
-                   origin_data.mean[config.label_in_feature_index]   # 通过保存的均值和方差还原数据
-    assert label_data.shape[0]==predict_data.shape[0], "The element number in origin and predicted data is different"
-
-    label_name = [origin_data.data_column_name[i] for i in config.label_in_feature_index]
-    label_column_num = len(config.label_columns)
-
-    # label 和 predict 是错开config.predict_day天的数据的
-    # 下面是两种norm后的loss的计算方式，结果是一样的，可以简单手推一下
-    # label_norm_data = origin_data.norm_data[origin_data.train_num + origin_data.start_num_in_test:,
-    #              config.label_in_feature_index]
-    # loss_norm = np.mean((label_norm_data[config.predict_day:] - predict_norm_data[:-config.predict_day]) ** 2, axis=0)
-    # logger.info("The mean squared error of stock {} is ".format(label_name) + str(loss_norm))
-
-    loss = np.mean((label_data[config.predict_day:] - predict_data[:-config.predict_day] ) ** 2, axis=0)
-    loss_norm = loss/(origin_data.std[config.label_in_feature_index] ** 2)
-    logger.info("The mean squared error of stock {} is ".format(label_name) + str(loss_norm))
-
-    label_X = range(origin_data.data_num - origin_data.train_num - origin_data.start_num_in_test)
-    predict_X = [ x + config.predict_day for x in label_X]
-
-    if True:  # not sys.platform.startswith('linux'):    # 无桌面的Linux下无法输出，如果是有桌面的Linux，如Ubuntu，可去掉这一行
-        for i in range(label_column_num):
-            plt.figure(i+1)                     # 预测数据绘制
-            plt.plot(label_X, label_data[:, i], label='label')
-            plt.plot(predict_X, predict_data[:, i], label='predict')
-            plt.title("Predict stock {} price with {}".format(label_name[i], config.used_frame))
-            logger.info("The predicted stock {} for the next {} day(s) is: ".format(label_name[i], config.predict_day) +
-                  str(np.squeeze(predict_data[-config.predict_day:, i])))
-            if config.do_figure_save:
-                plt.savefig(config.figure_save_path+"{}predict_{}_with_{}.png".format(config.continue_flag, label_name[i], config.used_frame))
-
-        plt.show()
-
-
 def main(config):
     logger = load_logger(config)
     try:
         np.random.seed(config.random_seed)  # 设置随机种子，保证可复现
         data_gainer = Data(config)
 
-        if config.do_train:
-            train_X, valid_X, train_Y, valid_Y = data_gainer.get_train_and_valid_data()
-            train(config, logger, [train_X, train_Y, valid_X, valid_Y])
+        test_X, test_Y = data_gainer.get_test_data()
+        pred_ys, real_ys = predict(config, [test_X, test_Y])
+        target_names = ['class flat', 'class rise', 'class down']
+        print('Classification table for test set:')
+        print(classification_report(real_ys, pred_ys, target_names=target_names))
+        # draw(config, data_gainer, logger, pred_result)
 
-        if config.do_predict:
-            test_X, test_Y = data_gainer.get_test_data()
-            pred_ys, real_ys = predict(config, [test_X, test_Y])
-            target_names = ['class flat', 'class rise', 'class down']
-            print('Classification table for test set:')
-            print(classification_report(real_ys, pred_ys, target_names=target_names))
-            # draw(config, data_gainer, logger, pred_result)
     except Exception:
         logger.error("Run Error", exc_info=True)
 

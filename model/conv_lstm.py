@@ -18,6 +18,7 @@ model = ConvLSTM(input_dim=channels,
 """
 
 import torch.nn as nn
+import torch.nn.functional as F
 import torch
 
 
@@ -212,11 +213,12 @@ class ConvLSTM(nn.Module):
 
 class CrossEntropy2d(nn.Module):
     """
-    二维的交叉熵损失
+        二维的交叉熵损失，这个不work，实际用的是下面的
     """
     def __init__(self):
         super(CrossEntropy2d, self).__init__()
         self.criterion = nn.CrossEntropyLoss(weight=None, reduction='mean')
+
     def forward(self, out, target):
         n, c, h, w = out.size()         # n:batch_size, c:class
         out = out.view(-1, c)           # (n*h*w, c)
@@ -224,3 +226,24 @@ class CrossEntropy2d(nn.Module):
         # print('out', out.size(), 'target', target.size())
         loss = self.criterion(out, target)
         return loss
+
+
+def cross_entropy2d(input, target, weight=None, size_average=True):
+    """
+        work的二维的交叉熵损失
+    """
+    # input: (n, c, h, w), target: (n, h, w)
+    n, c, h, w = input.size()
+    # log_p: (n, c, h, w)
+    log_p = F.log_softmax(input, dim=1)
+    # log_p: (n*h*w, c)
+    log_p = log_p.transpose(1, 2).transpose(2, 3).contiguous()
+    log_p = log_p[target.view(n, h, w, 1).repeat(1, 1, 1, c) >= 0]
+    log_p = log_p.view(-1, c)
+    # target: (n*h*w,)
+    mask = target >= 0
+    target = target[mask]
+    loss = F.nll_loss(log_p, target, weight=weight, reduction='sum')
+    if size_average:
+        loss /= mask.data.sum()
+    return loss

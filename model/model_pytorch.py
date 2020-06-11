@@ -1,23 +1,21 @@
 # -*- coding: UTF-8 -*-
 """
-@author: hichenway
-@contact: lyshello123@163.com
-@time: 2020/5/9 17:00
-@license: Apache
-pytorch 模型
+@Author: xueyang
+@File Create: 20200609
+@Last Modify: 20200611
+@Function: pytorch model structure and train / predict procedure
 """
 
 import torch
-from .conv_lstm import ConvLSTM, CrossEntropy2d
+from .conv_lstm import ConvLSTM, cross_entropy2d
 from torch.utils.data import DataLoader, TensorDataset
 import torch.nn as nn
 import numpy as np
-from sklearn.metrics import accuracy_score
 
 
 class Net(nn.Module):
     '''
-    pytorch预测模型，包括ConvLSTM时序预测层和用于输出降维的全连接层（Softmax分类输出层）
+    pytorch预测模型，包括ConvLSTM时序预测层和用于输出降维的卷积层、Softmax分类输出层
     '''
     def __init__(self, config):
         super(Net, self).__init__()
@@ -79,7 +77,7 @@ def train(config, logger, train_and_valid_data):
         model.load_state_dict(torch.load(config.model_save_path + config.model_name))
 
     optimizer = torch.optim.Adam(model.parameters(), lr=config.learning_rate)
-    criterion = CrossEntropy2d()      # 这两句是定义优化器和loss
+    criterion = cross_entropy2d          # 这两句是定义优化器和loss
 
     valid_loss_min = float("inf")
     bad_epoch = 0
@@ -143,10 +141,12 @@ def predict(config, test_data):
     # 加载模型
     device = torch.device("cuda:0" if config.use_cuda and torch.cuda.is_available() else "cpu")
     model = Net(config).to(device)
+    print('Loading model: ', config.model_save_path + config.model_name)
     model.load_state_dict(torch.load(config.model_save_path + config.model_name))   # 加载模型参数
 
-    # 先定义一个array保存每个batch的分数
-    result = []
+    # 先定义2个array分别保存预测结果和实际值
+    pred_ys = np.array([])
+    real_ys = np.array([])
 
     # 预测过程
     model.eval()
@@ -154,6 +154,7 @@ def predict(config, test_data):
         _test_X = _test_X.to(device)
         pred_Y = model(_test_X)     # [b, c, h, w]
         predict_ys = np.argmax(pred_Y.detach().cpu().numpy(), axis=1)  # [b, h, w]
-        result.append(accuracy_score(_test_Y.numpy().flatten(), predict_ys.flatten()))
+        pred_ys = np.concatenate((pred_ys, predict_ys.flatten()))
+        real_ys = np.concatenate((real_ys, _test_Y.numpy().flatten()))
 
-    return np.mean(result)
+    return pred_ys, real_ys
