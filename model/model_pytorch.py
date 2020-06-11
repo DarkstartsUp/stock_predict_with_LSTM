@@ -9,13 +9,13 @@ pytorch 模型
 
 import torch
 from .conv_lstm import ConvLSTM, CrossEntropy2d
-from torch.nn import Module, LSTM, Linear, Softmax2d, Conv2d
 from torch.utils.data import DataLoader, TensorDataset
 import torch.nn as nn
 import numpy as np
+from sklearn.metrics import accuracy_score
 
 
-class Net(Module):
+class Net(nn.Module):
     '''
     pytorch预测模型，包括ConvLSTM时序预测层和用于输出降维的全连接层（Softmax分类输出层）
     '''
@@ -29,6 +29,8 @@ class Net(Module):
         self.convlstm = ConvLSTM(input_dim=config.input_channels, hidden_dim=config.hidden_size,
                                  kernel_size=config.conv_kernel, num_layers=config.lstm_layers, batch_first=True)
 
+        self.bn1 = nn.BatchNorm2d(config.hidden_size)
+
         self.conv1 = nn.Sequential(
             nn.Conv2d(in_channels=config.hidden_size, out_channels=config.conv_out_channel, kernel_size=1, padding=0),
             nn.BatchNorm2d(config.conv_out_channel),
@@ -39,7 +41,7 @@ class Net(Module):
             nn.BatchNorm2d(config.category_num),
             nn.ReLU())  # 16, 3, 3
 
-        self.softmax = Softmax2d()
+        self.softmax = nn.Softmax2d()
 
     def forward(self, x):
         # , hidden=None
@@ -48,6 +50,7 @@ class Net(Module):
 
         _, last_states = self.convlstm(x)
         h = last_states[0][0]  # torch.Size([batch_size, 3, 18, 18])
+        h = self.bn1(h)
 
         c1 = self.conv1(h)
         c2 = self.conv2(c1)
@@ -99,7 +102,6 @@ def train(config, logger, train_and_valid_data):
                 vis.line(X=np.array([global_step]), Y=np.array([loss.item()]), win='Train_Loss',
                          update='append' if global_step > 0 else None, name='Train', opts=dict(showlegend=True))
 
-        # 以下为早停机制，当模型训练连续config.patience个epoch都没有使验证集预测效果提升时，就停止，防止过拟合
         model.eval()                    # pytorch中，预测时要转换成预测模式
         valid_loss_array = []
         for _valid_X, _valid_Y in valid_loader:
@@ -118,37 +120,40 @@ def train(config, logger, train_and_valid_data):
             vis.line(X=np.array([epoch]), Y=np.array([valid_loss_cur]), win='Epoch_Loss',
                      update='append' if epoch > 0 else None, name='Eval', opts=dict(showlegend=True))
 
-        if valid_loss_cur < valid_loss_min:
-            valid_loss_min = valid_loss_cur
-            bad_epoch = 0
-            torch.save(model.state_dict(), config.model_save_path + config.model_name)  # 模型保存
-        else:
-            bad_epoch += 1
-            if bad_epoch >= config.patience:    # 如果验证集指标连续patience个epoch没有提升，就停掉训练
-                logger.info(" The training stops early in epoch {}".format(epoch))
-                break
+        torch.save(model.state_dict(), config.model_save_path + config.model_name)  # 模型保存
+
+        # 以下为早停机制，当模型训练连续config.patience个epoch都没有使验证集预测效果提升时，就停止，防止过拟合
+        # if valid_loss_cur < valid_loss_min:
+        #     valid_loss_min = valid_loss_cur
+        #     bad_epoch = 0
+        #     torch.save(model.state_dict(), config.model_save_path + config.model_name)  # 模型保存
+        # else:
+        #     bad_epoch += 1
+        #     if bad_epoch >= config.patience:    # 如果验证集指标连续patience个epoch没有提升，就停掉训练
+        #         logger.info(" The training stops early in epoch {}".format(epoch))
+        #         break
 
 
-def predict(config, test_X):
+def predict(config, test_data):
     # 获取测试数据
-    test_X = torch.from_numpy(test_X).float()
-    test_set = TensorDataset(test_X)
-    test_loader = DataLoader(test_set, batch_size=1)
+    test_X, test_Y = test_data
+    test_X, test_Y = torch.from_numpy(test_X).float(), torch.from_numpy(test_Y).long()     # 先转为Tensor
+    test_loader = DataLoader(TensorDataset(test_X, test_Y), batch_size=1)
 
     # 加载模型
     device = torch.device("cuda:0" if config.use_cuda and torch.cuda.is_available() else "cpu")
     model = Net(config).to(device)
     model.load_state_dict(torch.load(config.model_save_path + config.model_name))   # 加载模型参数
 
-    # 先定义一个tensor保存预测结果
-    result = torch.Tensor().to(device)
+    # 先定义一个array保存每个batch的分数
+    result = []
 
     # 预测过程
     model.eval()
-    for _data in test_loader:
-        data_X = _data[0].to(device)
-        pred_X = model(data_X)
-        cur_pred = torch.squeeze(pred_X, dim=0)
-        result = torch.cat((result, cur_pred), dim=0)
+    for _test_X, _test_Y in test_loader:
+        _test_X = _test_X.to(device)
+        pred_Y = model(_test_X)     # [b, c, h, w]
+        predict_ys = np.argmax(pred_Y.detach().cpu().numpy(), axis=1)  # [b, h, w]
+        result.append(accuracy_score(_test_Y.numpy().flatten(), predict_ys.flatten()))
 
-    return result.detach().cpu().numpy()    # 先去梯度信息，如果在gpu要转到cpu，最后要返回numpy数据
+    return np.mean(result)
