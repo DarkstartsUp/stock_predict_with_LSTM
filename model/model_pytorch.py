@@ -123,18 +123,16 @@ def train(config, logger, train_and_valid_data):
             vis.line(X=np.array([epoch]), Y=np.array([valid_loss_cur]), win='Epoch_Loss',
                      update='append' if epoch > 0 else None, name='Eval', opts=dict(showlegend=True))
 
-        torch.save(model.state_dict(), config.model_save_path + config.model_name)  # 模型保存
-
         # 以下为早停机制，当模型训练连续config.patience个epoch都没有使验证集预测效果提升时，就停止，防止过拟合
-        # if valid_loss_cur < valid_loss_min:
-        #     valid_loss_min = valid_loss_cur
-        #     bad_epoch = 0
-        #     torch.save(model.state_dict(), config.model_save_path + config.model_name)  # 模型保存
-        # else:
-        #     bad_epoch += 1
-        #     if bad_epoch >= config.patience:    # 如果验证集指标连续patience个epoch没有提升，就停掉训练
-        #         logger.info(" The training stops early in epoch {}".format(epoch))
-        #         break
+        if valid_loss_cur < valid_loss_min:
+            valid_loss_min = valid_loss_cur
+            bad_epoch = 0
+            torch.save(model.state_dict(), config.model_save_path + config.model_name)  # 模型保存
+        else:
+            bad_epoch += 1
+            if bad_epoch >= config.patience:    # 如果验证集指标连续patience个epoch没有提升，就停掉训练
+                logger.info(" The training stops early in epoch {}".format(epoch))
+                break
     x_axis = [i for i in range(1, config.epoch + 1)]
     plt.plot(x_axis, train_losses, 'r', label='train loss')
     plt.plot(x_axis, valid_losses, 'b', label='validation loss')

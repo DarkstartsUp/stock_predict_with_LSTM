@@ -45,7 +45,7 @@ class Config:
 
     batch_size = 48
     learning_rate = 0.0005        # TODO： lr梯度下降
-    epoch = 200                   # 整个训练集被训练多少遍，不考虑早停的前提下
+    epoch = 500                   # 整个训练集被训练多少遍，不考虑早停的前提下
     patience = 500                # 训练多少epoch，验证集没提升就停掉
     random_seed = 42              # 随机种子，保证可复现
 
