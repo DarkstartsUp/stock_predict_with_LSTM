@@ -19,9 +19,6 @@ from model.model_pytorch import train, predict
 
 
 class Config:
-    # 数据参数
-    # feature_columns = 1          # 每只股票的feature维数
-
     # 网络参数
     time_step = 30                # 设置用前多少天的数据来预测，也是LSTM的time step数
     predict_day = 7               # 预测未来多少天的涨跌平
@@ -34,7 +31,7 @@ class Config:
     conv_out_channel = 16         # 卷积中间层的输出channel数
     category_num = 3              # 输出的预测类别数量
 
-    # dropout_rate = 0.2          # dropout概率
+    # dropout_rate = 0.2          # TODO：dropout概率
 
     # 训练参数
     do_train = True
@@ -46,10 +43,10 @@ class Config:
     train_data_rate = 0.8         # 训练数据占总体数据比例，测试数据就是 1-train_data_rate
     valid_data_rate = 0.1         # 验证数据占训练数据比例，验证集在训练过程使用，为了做模型和参数选择
 
-    batch_size = 64
-    learning_rate = 0.0005
-    epoch = 120                   # 整个训练集被训练多少遍，不考虑早停的前提下
-    patience = 120                # 训练多少epoch，验证集没提升就停掉
+    batch_size = 48
+    learning_rate = 0.0005        # TODO： lr梯度下降
+    epoch = 200                   # 整个训练集被训练多少遍，不考虑早停的前提下
+    patience = 500                # 训练多少epoch，验证集没提升就停掉
     random_seed = 42              # 随机种子，保证可复现
 
     # do_continue_train = False    # 每次训练把上一次的final_state作为下一次的init_state，仅用于RNN类型模型，目前仅支持pytorch
@@ -68,7 +65,7 @@ class Config:
     model_name = "model_" + time.strftime("%Y%m%d_%H%M%S") + model_postfix
 
     # 路径参数
-    train_data_path = './data/Astock_hs300_no_nan.npy'
+    train_data_path = './data/Astock_center_zz800.npy'
     model_save_path = "./checkpoint/" + experiment_name + "/"
     figure_save_path = "./figure/"
     log_save_path = "./log/"
@@ -101,9 +98,9 @@ class Data:
         self.norm_data = (self.data - self.mean) / self.std                # 分别对每只股票的价格做归一化 shape: (H, W, T)
 
         # 构造标签
-        self.label_data = np.zeros_like(self.norm_data, dtype='int64')     # 每只股票每天的label（根据前7天） shape: (H, W, T)
-        for i in range(self.config.predict_day, self.norm_data.shape[2]):    # i in range [7, T)
-            reference_data = self.norm_data[:, :, i - self.config.predict_day:i]    # 取出 range [i - 7, i)的数据
+        self.label_data = np.zeros_like(self.norm_data, dtype='int64')     # 每只股票每天的label（根据后7天） shape: (H, W, T)
+        for i in range(self.norm_data.shape[2] - self.config.predict_day):    # i in range [0, T-7]
+            reference_data = self.norm_data[:, :, i: i + self.config.predict_day]    # 取出 range [i, i + 6]的数据
             difference = reference_data[:, :, -1] - reference_data[:, :, 0]    # 7天当中的最后一天股价减第一天股价，作为sort依据
             temp_frame = np.zeros_like(difference)         # 用于存储第i天各个股票的label shape: (H, W)
             sorted_diff = np.sort(difference.flatten())
@@ -117,11 +114,11 @@ class Data:
         return init_data
 
     def get_train_and_valid_data(self):
-        feature_data = self.norm_data[:, :, :self.train_num]       # 取出归一化后的数据的训练部分, (H, W, T)
-        label_data = self.label_data[:, :, self.config.time_step: self.train_num]   # 将延后7天的数据作为label, (H, W, T)
+        feature_data = self.norm_data[:, :, :self.train_num - self.config.predict_day]       # 取出归一化后的数据的训练部分, (H, W, T)
+        label_data = self.label_data[:, :, self.config.time_step: self.train_num - self.config.predict_day]   # 将延后7天的数据作为label, (H, W, T)
 
         # 每time_step行数据会作为一个样本，两个样本错开一日，比如：1-30日，2-31日
-        train_x = [feature_data[:, :, i:i+self.config.time_step] for i in range(self.train_num-self.config.time_step)]
+        train_x = [feature_data[:, :, i:i+self.config.time_step] for i in range(self.train_num - self.config.time_step - self.config.predict_day)]
         train_y = np.transpose(label_data, (2, 0, 1))     # (T, H, W)
 
         train_x = np.array(train_x)                              # b, h, w, t
@@ -135,11 +132,11 @@ class Data:
         return train_x, valid_x, train_y, valid_y
 
     def get_test_data(self):
-        feature_data = self.norm_data[:, :, self.train_num:]
-        label_data = self.label_data[:, :, self.train_num + self.config.time_step:]
+        feature_data = self.norm_data[:, :, self.train_num: -self.config.predict_day]
+        label_data = self.label_data[:, :, self.train_num + self.config.time_step: -self.config.predict_day]
 
         # 在测试数据中，每两个样本错开一日，比如：1-30日，2-31日，到数据末尾
-        test_x = [feature_data[:, :, i:i + self.config.time_step] for i in range(self.test_num - self.config.time_step)]
+        test_x = [feature_data[:, :, i:i + self.config.time_step] for i in range(self.test_num - self.config.time_step - self.config.predict_day)]
         test_y = np.transpose(label_data, (2, 0, 1))
 
         test_x = np.array(test_x)                             # b, h, w, t
@@ -233,7 +230,7 @@ def main(config):
 
         if config.do_predict:
             test_X, test_Y = data_gainer.get_test_data()
-            pred_ys, real_ys = predict(config, [test_X, test_Y])
+            pred_ys, real_ys, pred_ys_no_flat = predict(config, [test_X, test_Y])
             target_names = ['class flat', 'class down', 'class rise']    # label: 0:平  1:跌  2:涨
             print('Classification table for test set:')
             print(classification_report(real_ys, pred_ys, target_names=target_names))

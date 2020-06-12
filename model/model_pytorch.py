@@ -11,6 +11,7 @@ from .conv_lstm import ConvLSTM, cross_entropy2d
 from torch.utils.data import DataLoader, TensorDataset
 import torch.nn as nn
 import numpy as np
+import matplotlib.pyplot as plt
 
 
 class Net(nn.Module):
@@ -82,6 +83,8 @@ def train(config, logger, train_and_valid_data):
     valid_loss_min = float("inf")
     bad_epoch = 0
     global_step = 0
+    train_losses = []
+    valid_losses = []
     for epoch in range(config.epoch):
         logger.info("Epoch {}/{}".format(epoch, config.epoch))
         model.train()                   # pytorch中，训练时要转换成训练模式
@@ -110,6 +113,8 @@ def train(config, logger, train_and_valid_data):
 
         train_loss_cur = np.mean(train_loss_array)
         valid_loss_cur = np.mean(valid_loss_array)
+        train_losses.append(train_loss_cur)
+        valid_losses.append(valid_loss_cur)
         logger.info("The train loss is {:.6f}. ".format(train_loss_cur) +
               "The valid loss is {:.6f}.".format(valid_loss_cur))
         if config.do_train_visualized:      # 第一个train_loss_cur太大，导致没有显示在visdom中
@@ -130,7 +135,13 @@ def train(config, logger, train_and_valid_data):
         #     if bad_epoch >= config.patience:    # 如果验证集指标连续patience个epoch没有提升，就停掉训练
         #         logger.info(" The training stops early in epoch {}".format(epoch))
         #         break
-
+    x_axis = [i for i in range(1, config.epoch + 1)]
+    plt.plot(x_axis, train_losses, 'r', label='train loss')
+    plt.plot(x_axis, valid_losses, 'b', label='validation loss')
+    plt.xlabel('epoch')
+    plt.ylabel('loss')
+    plt.legend()  # 将样例显示出来
+    plt.show()
 
 def predict(config, test_data):
     # 获取测试数据
@@ -147,6 +158,7 @@ def predict(config, test_data):
     # 先定义2个array分别保存预测结果和实际值
     pred_ys = np.array([])
     real_ys = np.array([])
+    pred_ys_no_flat = []
 
     # 预测过程
     model.eval()
@@ -155,6 +167,7 @@ def predict(config, test_data):
         pred_Y = model(_test_X)     # [b, c, h, w]
         predict_ys = np.argmax(pred_Y.detach().cpu().numpy(), axis=1)  # [b, h, w]
         pred_ys = np.concatenate((pred_ys, predict_ys.flatten()))
+        pred_ys_no_flat.append(predict_ys)
         real_ys = np.concatenate((real_ys, _test_Y.numpy().flatten()))
 
-    return pred_ys, real_ys
+    return pred_ys, real_ys, np.array(pred_ys_no_flat)

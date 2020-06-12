@@ -39,7 +39,7 @@ class Config:
     conv_out_channel = 16         # 卷积中间层的输出channel数
     category_num = 3              # 输出的预测类别数量
 
-    train_data_rate = 0.8         # 训练数据占总体数据比例，测试数据就是 1-train_data_rate
+    train_data_rate = 0.1         # 训练数据占总体数据比例，测试数据就是 1-train_data_rate
     valid_data_rate = 0.1         # 验证数据占训练数据比例，验证集在训练过程使用，为了做模型和参数选择
 
     batch_size = 64
@@ -65,7 +65,7 @@ class Config:
     model_name = 'model_20200611_195548.pth'
 
     # 路径参数
-    train_data_path = './data/Astock_hs300_no_nan.npy'
+    train_data_path = './data/Astock_center_zz800_19_19_600p.npy'
     model_save_path = "./checkpoint/" + experiment_name + "/"
     figure_save_path = "./figure/"
     log_save_path = "./log/"
@@ -177,7 +177,7 @@ def main(config):
         data_gainer = Data(config)
 
         test_X, test_Y = data_gainer.get_test_data()
-        pred_ys, real_ys = predict(config, [test_X, test_Y])
+        pred_ys, real_ys, pred_ys_no_flat = predict(config, [test_X, test_Y])
         target_names = ['class flat', 'class down', 'class rise']  # label: 0:平  1:跌  2:涨
         print('Classification table for test set:')
         print(classification_report(real_ys, pred_ys, target_names=target_names))
