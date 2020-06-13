@@ -2,7 +2,7 @@
 """
 @Author: xueyang
 @File Create: 20200606
-@Last Modify: 20200611
+@Last Modify: 20200613
 @Function: temporary codebase for debugging any code here
 """
 import time
@@ -89,26 +89,33 @@ if __name__ == '__main__':
     #             if np.isnan(stock_data[i][j][t]):
     #                 print(i, j, t)
 
-    import argparse
-    # argparse方便于命令行下输入参数，可以根据需要增加更多
-    parser = argparse.ArgumentParser()
-    args = parser.parse_args()
-
-    config = Config()
-    for key in dir(args):  # dir(args) 函数获得args所有的属性
-        if not key.startswith("_"):  # 去掉 args 自带属性，比如__name__等
-            setattr(config, key, getattr(args, key))  # 将属性值赋给Config
-
-    data_gainer = Data(config)
-    data_gainer.get_test_data()
-
-    # x = torch.rand((2, 10, 1, 18, 18), requires_grad=True)
-    # label = torch.empty(2, 18, 18, dtype=torch.long).random_(3)
-    # # print(label)
+    # import argparse
+    # # argparse方便于命令行下输入参数，可以根据需要增加更多
+    # parser = argparse.ArgumentParser()
+    # args = parser.parse_args()
     #
-    # convlstm = ConvLSTM(1, 3, (3, 3), 2, True, True, False)
-    # _, last_states = convlstm(x)
-    # h = last_states[0][0]  # torch.Size([2, 3, 18, 18])
+    # config = Config()
+    # for key in dir(args):  # dir(args) 函数获得args所有的属性
+    #     if not key.startswith("_"):  # 去掉 args 自带属性，比如__name__等
+    #         setattr(config, key, getattr(args, key))  # 将属性值赋给Config
+    #
+    # data_gainer = Data(config)
+    # data_gainer.get_test_data()
+
+    x = torch.rand((2, 10, 1, 18, 18), requires_grad=True)
+    label = torch.empty(2, 18, 18, dtype=torch.long).random_(3)
+    # print(label)
+
+    convlstm = ConvLSTM(1, 6, (3, 3), 2, True, True, False)
+    _, last_states = convlstm(x)
+    h = last_states[0][0]  # torch.Size([2, 3, 18, 18])
+    m = last_states[0][1]
+
+    out = torch.cat((h, m), dim=1)
+    print(out.size())
+    print(out[0,0,:,:])
+
+
     #
     # m = Softmax2d()
     # # you softmax over the 2nd dimension

@@ -2,7 +2,7 @@
 """
 @Author: xueyang
 @File Create: 20200609
-@Last Modify: 20200611
+@Last Modify: 20200613
 @Function: Train Conv-LSTM for stock prediction, including config parsing, data processing and model training
 """
 
@@ -28,7 +28,8 @@ class Config:
     conv_kernel = (3, 3)          # ConvLSTM卷积核的大小
 
     # 输出的维度由hidden_size到category_num的过程，使用1x1卷积进行降维
-    conv_out_channel = 16         # 卷积中间层的输出channel数
+    # 由于将convlstm输出的hidden和memory concatenate到一起输入1x1卷积层，因此convlstm的实际输出维度为2 * hidden_size
+    conv_out_channel = 32         # 卷积中间层的输出channel数
     category_num = 3              # 输出的预测类别数量
 
     # dropout_rate = 0.2          # TODO：dropout概率

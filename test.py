@@ -2,7 +2,7 @@
 """
 @Author: xueyang
 @File Create: 20200611
-@Last Modify: 20200611
+@Last Modify: 20200612
 @Function: Test Conv-LSTM model for stock prediction
 """
 

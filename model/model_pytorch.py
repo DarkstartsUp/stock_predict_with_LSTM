@@ -2,7 +2,7 @@
 """
 @Author: xueyang
 @File Create: 20200609
-@Last Modify: 20200611
+@Last Modify: 20200613
 @Function: pytorch model structure and train / predict procedure
 """
 
@@ -28,10 +28,10 @@ class Net(nn.Module):
         self.convlstm = ConvLSTM(input_dim=config.input_channels, hidden_dim=config.hidden_size,
                                  kernel_size=config.conv_kernel, num_layers=config.lstm_layers, batch_first=True)
 
-        self.bn1 = nn.BatchNorm2d(config.hidden_size)
+        self.bn1 = nn.BatchNorm2d(config.hidden_size * 2)
 
         self.conv1 = nn.Sequential(
-            nn.Conv2d(in_channels=config.hidden_size, out_channels=config.conv_out_channel, kernel_size=1, padding=0),
+            nn.Conv2d(in_channels=config.hidden_size * 2, out_channels=config.conv_out_channel, kernel_size=1, padding=0),
             nn.BatchNorm2d(config.conv_out_channel),
             nn.ReLU())  # 32, 16, 16
 
@@ -48,10 +48,13 @@ class Net(nn.Module):
         # linear_out = self.linear(lstm_out)
 
         _, last_states = self.convlstm(x)
-        h = last_states[0][0]  # torch.Size([batch_size, 3, 18, 18])
-        h = self.bn1(h)
+        h = last_states[0][0]  # hidden state, torch.Size([batch_size, 3, 18, 18])
+        m = last_states[0][1]  # memory, torch.Size([batch_size, 3, 18, 18])
 
-        c1 = self.conv1(h)
+        conv_lstm_out = torch.cat((h, m), dim=1)   # torch.Size([batch_size, 6, 18, 18])
+        conv_lstm_out = self.bn1(conv_lstm_out)
+
+        c1 = self.conv1(conv_lstm_out)
         c2 = self.conv2(c1)
 
         # Softmax over the 2nd dimension
@@ -139,7 +142,9 @@ def train(config, logger, train_and_valid_data):
     plt.xlabel('epoch')
     plt.ylabel('loss')
     plt.legend()  # 将样例显示出来
+    plt.title(config.model_name)
     plt.show()
+
 
 def predict(config, test_data):
     # 获取测试数据
