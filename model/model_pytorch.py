@@ -9,6 +9,7 @@
 import torch
 from .conv_lstm import ConvLSTM, cross_entropy2d
 from torch.utils.data import DataLoader, TensorDataset
+from torch.optim import lr_scheduler
 import torch.nn as nn
 import numpy as np
 import matplotlib.pyplot as plt
@@ -81,6 +82,7 @@ def train(config, logger, train_and_valid_data):
         model.load_state_dict(torch.load(config.model_save_path + config.model_name))
 
     optimizer = torch.optim.Adam(model.parameters(), lr=config.learning_rate)
+    scheduler = lr_scheduler.StepLR(optimizer, step_size=config.lr_step_size, gamma=0.1)
     criterion = cross_entropy2d          # 这两句是定义优化器和loss
 
     valid_loss_min = float("inf")
@@ -105,7 +107,7 @@ def train(config, logger, train_and_valid_data):
             if config.do_train_visualized and global_step % 100 == 0:   # 每一百步显示一次
                 vis.line(X=np.array([global_step]), Y=np.array([loss.item()]), win='Train_Loss',
                          update='append' if global_step > 0 else None, name='Train', opts=dict(showlegend=True))
-
+        scheduler.step()
         model.eval()                    # pytorch中，预测时要转换成预测模式
         valid_loss_array = []
         for _valid_X, _valid_Y in valid_loader:
@@ -119,7 +121,8 @@ def train(config, logger, train_and_valid_data):
         train_losses.append(train_loss_cur)
         valid_losses.append(valid_loss_cur)
         logger.info("The train loss is {:.6f}. ".format(train_loss_cur) +
-              "The valid loss is {:.6f}.".format(valid_loss_cur))
+                    "The valid loss is {:.6f}. ".format(valid_loss_cur) +
+                    'lr is {:.6f}.'.format(scheduler.get_lr()[0]))
         if config.do_train_visualized:      # 第一个train_loss_cur太大，导致没有显示在visdom中
             vis.line(X=np.array([epoch]), Y=np.array([train_loss_cur]), win='Epoch_Loss',
                      update='append' if epoch > 0 else None, name='Train', opts=dict(showlegend=True))
