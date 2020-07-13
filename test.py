@@ -16,26 +16,26 @@ from model.model_pytorch import predict
 class Config:
     time_step = 30                # 设置用前多少天的数据来预测，也是LSTM的time step数
     predict_day = 7               # 预测未来多少天的涨跌平
-    input_channels = 1            # 输入的特征维数
+    input_channels = 2            # 输入的特征维数
     hidden_size = 32              # LSTM的隐藏层大小，也是输出大小
     lstm_layers = 3               # LSTM的堆叠层数
     conv_kernel = (3, 3)          # ConvLSTM卷积核的大小
 
     # 输出的维度由hidden_size到category_num的过程，使用1x1卷积进行降维
-    conv_out_channel = 16         # 卷积中间层的输出channel数
+    conv_out_channel = 32         # 卷积中间层的输出channel数
     category_num = 3              # 输出的预测类别数量
 
-    train_data_rate = 0.1         # 训练数据占总体数据比例，测试数据就是 1-train_data_rate
+    train_data_rate = 0.05         # 训练数据占总体数据比例，测试数据就是 1-train_data_rate
     valid_data_rate = 0.1         # 验证数据占训练数据比例，验证集在训练过程使用，为了做模型和参数选择
     random_seed = 42               # 随机种子，保证可复现
     use_cuda = True  # 是否使用GPU训练
 
     experiment_name = 'ConvLSTM'
     model_postfix = ".pth"
-    model_name = 'model_20200612_224227.pth'
+    model_name = 'model_20200627_150636.pth'
 
     # 路径参数
-    train_data_path = './data/Astock_center_zz800.npy'
+    train_data_path = './data/data_zz800_prize_and_volume.npy'
     model_save_path = "./checkpoint/" + experiment_name + "/"
     figure_save_path = "./figure/"
     log_save_path = "./log/"

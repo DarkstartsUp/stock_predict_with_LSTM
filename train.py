@@ -25,7 +25,7 @@ class Config:
     input_channels = 2            # 输入的特征维数，默认价格在第0维
     hidden_size = 32              # LSTM的隐藏层大小，也是输出大小
     lstm_layers = 3               # LSTM的堆叠层数
-    conv_kernel = (3, 3)          # ConvLSTM卷积核的大小
+    conv_kernel = (5, 5)          # ConvLSTM卷积核的大小
 
     # 输出的维度由hidden_size到category_num的过程，使用1x1卷积进行降维
     # 由于将convlstm输出的hidden和memory concatenate到一起输入1x1卷积层，因此convlstm的实际输出维度为2 * hidden_size
@@ -38,6 +38,7 @@ class Config:
     do_train = True
     do_predict = True
     add_train = False             # 是否载入已有模型参数进行增量训练
+    shuffle_train_and_val = False  # 是否对打乱混合训练集和验证集
     shuffle_train_data = True     # 是否对训练数据做shuffle
     use_cuda = True               # 是否使用GPU训练
 
@@ -45,9 +46,9 @@ class Config:
     valid_data_rate = 0.1         # 验证数据占训练数据比例，验证集在训练过程使用，为了做模型和参数选择
 
     batch_size = 48
-    learning_rate = 0.001         # TODO： lr梯度下降
-    lr_step_size = 200            # 学习率自动调整步长
-    epoch = 400                   # 整个训练集被训练多少遍，不考虑早停的前提下
+    learning_rate = 0.0001         # TODO： lr梯度下降
+    epoch = 30                    # 整个训练集被训练多少遍，不考虑早停的前提下
+    lr_step_size = 30             # 学习率自动调整的步长
     patience = 500                # 训练多少epoch，验证集没提升就停掉
     random_seed = 42              # 随机种子，保证可复现
 
@@ -137,7 +138,7 @@ class Data:
         # 划分训练和验证集，并打乱
         train_x, valid_x, train_y, valid_y = train_test_split(train_x, train_y, test_size=self.config.valid_data_rate,
                                                               random_state=self.config.random_seed,
-                                                              shuffle=self.config.shuffle_train_data)
+                                                              shuffle=self.config.shuffle_train_and_val)
         return train_x, valid_x, train_y, valid_y
 
     def get_test_data(self):

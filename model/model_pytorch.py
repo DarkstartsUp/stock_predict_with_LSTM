@@ -71,7 +71,8 @@ def train(config, logger, train_and_valid_data):
 
     train_X, train_Y, valid_X, valid_Y = train_and_valid_data
     train_X, train_Y = torch.from_numpy(train_X).float(), torch.from_numpy(train_Y).long()     # 先转为Tensor
-    train_loader = DataLoader(TensorDataset(train_X, train_Y), batch_size=config.batch_size)    # DataLoader可自动生成可训练的batch数据
+    train_loader = DataLoader(TensorDataset(train_X, train_Y), batch_size=config.batch_size,
+                              shuffle=config.shuffle_train_data)    # DataLoader可自动生成可训练的batch数据
 
     valid_X, valid_Y = torch.from_numpy(valid_X).float(), torch.from_numpy(valid_Y).long()
     valid_loader = DataLoader(TensorDataset(valid_X, valid_Y), batch_size=config.batch_size)
